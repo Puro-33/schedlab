@@ -1,0 +1,65 @@
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {mkdtemp, mkdir, rm, readFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+
+const {chromium} = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const temp = await mkdtemp(path.join(tmpdir(), 'schedlab-browser-'));
+const server = spawn(process.env.PYTHON || 'python3', ['-m', 'schedlab.server', '--port', '0', '--database', path.join(temp, 'runs.sqlite3')], {cwd:root});
+let browser;
+try {
+  const address = await new Promise((resolve,reject) => {
+    const timeout = setTimeout(()=>reject(new Error('Server startup timeout')),10000);
+    server.once('error',error=>{clearTimeout(timeout);reject(error);});
+    server.once('exit',code=>{clearTimeout(timeout);reject(new Error(`Server exited: ${code}`));});
+    server.stdout.on('data',chunk=>{const match=chunk.toString().match(/http:\/\/127\.0\.0\.1:\d+/);if(match){clearTimeout(timeout);resolve(match[0]);}});
+    server.stderr.on('data',()=>{});
+  });
+  browser = await chromium.launch({headless:true, args:['--disable-dev-shm-usage']});
+  const page = await browser.newPage({viewport:{width:1440,height:1400}, deviceScaleFactor:1});
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(address);
+  await page.waitForFunction(()=>document.querySelectorAll('.policy-card').length===6 && !document.querySelector('#run').disabled);
+  assert.equal(await page.locator('#process-rows tr').count(),8);
+  await mkdir(path.join(root,'docs','images'),{recursive:true});
+  await page.screenshot({path:path.join(root,'docs','images','dashboard.png'),fullPage:false});
+  await page.getByRole('button',{name:'Round Robin:',exact:false}).click();
+  await page.locator('#scrubber').fill('10');await page.locator('#scrubber').dispatchEvent('input');
+  assert.equal(await page.locator('#clock').textContent(),'t = 10');
+  await page.locator('#play').click();await page.waitForFunction(()=>Number(document.querySelector('#scrubber').value)>10);await page.locator('#play').click();
+  await page.locator('#experiment-name').fill('Browser verified experiment');await page.locator('#save').click();
+  await page.waitForFunction(()=>document.querySelector('#status').textContent.includes('saved locally'));
+  await page.locator('#process-rows input[data-key="burst"]').first().fill('9');
+  assert.equal(await page.locator('#results').isVisible(),false);
+  assert.equal(await page.locator('#save').isDisabled(),true);
+  await page.getByRole('button',{name:'Load run',exact:true}).click();
+  await page.waitForFunction(()=>!document.querySelector('#run').disabled && !document.querySelector('#results').hidden);
+  const jsonDownload=page.waitForEvent('download');await page.locator('#export-json').click();
+  const download=await jsonDownload;const downloaded=JSON.parse(await readFile(await download.path(),'utf8'));
+  assert.equal(downloaded.results.length,6);
+  const csvDownload=page.waitForEvent('download');await page.locator('#export-csv').click();
+  assert.match(await readFile(await (await csvDownload).path(),'utf8'),/"completion"/);
+  await page.locator('#repeats').fill('3');await page.locator('#benchmark').click();
+  await page.waitForFunction(()=>document.querySelector('#benchmark-results tbody')?.children.length===6);
+  const benchDownload=page.waitForEvent('download');await page.locator('#benchmark-export').click();
+  assert.equal(JSON.parse(await readFile(await (await benchDownload).path(),'utf8')).samples.length,18);
+  await page.locator('#import-file').setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from('{"processes":[]}')});
+  await page.waitForFunction(()=>document.querySelector('#status').classList.contains('error'));
+  await page.locator('#import-file').setInputFiles({name:'run.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(downloaded))});
+  await page.waitForFunction(()=>!document.querySelector('#run').disabled && document.querySelector('#status').textContent.startsWith('Compared'));
+  await page.reload();await page.waitForSelector('.saved-run');
+  assert.match(await page.locator('.saved-run').first().textContent(),/Browser verified/);
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path:path.join(root,'docs','images','mobile.png'),fullPage:false});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'No horizontal overflow on mobile');
+  assert.deepEqual(errors,[],'No browser JavaScript errors');
+  console.log('Browser checks passed: initial load, policy selection, playback, save/reload, stale-state handling, JSON/CSV exports, repeated benchmarks, import validation, persistence, and mobile layout.');
+} finally {
+  if(browser)await browser.close();
+  server.kill();
+  await new Promise(resolve=>{if(server.exitCode!==null || server.signalCode!==null)resolve();else server.once('exit',resolve);});
+  await rm(temp,{recursive:true,force:true});
+}

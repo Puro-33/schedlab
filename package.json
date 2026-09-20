@@ -1,0 +1,8 @@
+{
+  "name": "schedlab-browser-checks",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Optional browser verification; the application itself needs only Python.",
+  "scripts": {"test:browser": "node scripts/browser-check.mjs"},
+  "devDependencies": {"playwright": "1.63.0"}
+}

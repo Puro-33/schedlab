@@ -1,117 +1,119 @@
-# Process Scheduling Simulation using Python Tkinter and turtle
-This project is a graphical simulation of different CPU scheduling algorithms implemented using Python's Tkinter and Turtle libraries. The simulator visualizes the execution of processes using First-Come, First-Served (FCFS), Shortest Job First (SJF), and Round Robin (RR) scheduling algorithms. This project was a part of the course CSS225 Operating System by SIIT.
+# SchedLab
 
-## Table of Contents
-- [Features](#features)
-- [Installation](#installation)
-- [Usage](#usage)
-- [User Interface](#user-interface)
-- [Scheduling Algorithms](#scheduling-algorithms)
-  - [First-Come, First-Served (FCFS)](#first-come-first-served-fcfs)
-  - [Shortest Job First (SJF)](#shortest-job-first-sjf)
-  - [Round Robin (RR)](#round-robin-rr)
-- [How It Works](#how-it-works)
-- [Contributing](#contributing)
-- [License](#license)
+**A CPU scheduling research dashboard built as an extension of an existing open-source operating-systems simulator.**
+
+Compare six scheduling policies, replay execution, save experiments, and measure tradeoffs over repeatable workloads. Designed as a CS capstone foundation with implementation, evaluation data, tests, and a defense guide.
+
+![SchedLab desktop dashboard](docs/images/dashboard.png)
+
+## Start in one command
+
+Requirements: **Python 3.11 or newer** and a modern browser. The web application has **no third-party Python dependencies**.
+
+```bash
+python3 -m schedlab.server
+```
+
+Open **http://127.0.0.1:8080**. On Windows, use `py -m schedlab.server` if `python3` is unavailable. To choose another port: `python3 -m schedlab.server --port 8085`.
+
+The server binds only to the local computer. SQLite experiments are created in `data/experiments.sqlite3` and excluded from Git. This is a local educational application, not a hosted multi-user service.
+
+## Upstream and original contribution
+
+This project follows [SorawitChok/Process-Scheduling-Simulation-Project](https://github.com/SorawitChok/Process-Scheduling-Simulation-Project), starting at commit [`f7b2f98`](https://github.com/SorawitChok/Process-Scheduling-Simulation-Project/commit/f7b2f98fa4fd5875dd443414b1d05fc18500459a). Its Git history, `simulator.py`, images, and MIT license are preserved. The original README is archived at [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md).
+
+| Original project | SchedLab extension |
+|---|---|
+| Tkinter/Turtle desktop interface | Responsive browser dashboard and local JSON API |
+| FCFS, SJF, preemptive SJF, RR | Those policies plus non-preemptive Priority and HRRN |
+| Scheduling coupled to animation and global state | Separate deterministic simulation engine |
+| Manual workload entry | Up to 100 jobs, seeded generators, JSON import/export |
+| Single-run metrics | Six-policy comparison, repeated paired benchmarks, raw samples |
+| Absolute-start response calculation in `Respond` | Arrival-relative response metric, with a regression test |
+| Desktop visualization | Timeline scrubbing, playback, per-process outcomes |
+| No saved research notebook | SQLite storage, reproducible settings, CSV exports |
+
+The new web engine is independently implemented; the original desktop engine remains available for comparison. Attribution is not a claim that the upstream authors wrote or endorse the extension. See [provenance](docs/PROVENANCE.md) for the exact boundary.
 
 ## Features
-- Visual representation of process scheduling using a Gantt chart.
-- Simulation of FCFS, SJF (both preemptive and non-preemptive), and RR scheduling algorithms.
-- Calculation and display of average waiting time, turnaround time, and response time.
-- Interactive interface using Tkinter.
 
-## Installation
+- **Six policies:** FCFS, SJF, SRTF, Round Robin, non-preemptive Priority, HRRN.
+- **Four synthetic workload profiles:** mixed, batch, short jobs, and convoy effect.
+- **Interactive results:** policy cards, Gantt timeline, time scrubber, waiting-process membership, process-level metrics.
+- **Measurements:** waiting, turnaround, response, slowdown, p95 and max waiting, CPU utilization, throughput, context switches.
+- **Reproducible benchmarks:** shared workloads across algorithms, consecutive seeds, mean and sample standard deviation.
+- **Experiment notebook:** save, reload, JSON round-trip, per-process CSV.
+- **Validation:** bounded integer inputs, unique process IDs, explicit tie-breaking and RR arrival semantics.
 
-1. **Clone the repository:**
-   ```sh
-   git clone https://github.com/SorawitChok/Process-Scheduling-Simulation-Project.git
-   ```
+## Test and reproduce
 
-2. **Install the required dependencies:**
-   Ensure you have Python installed. No additional libraries are required as the project uses Tkinter and Turtle, which come with standard Python installations.
+```bash
+python3 -m unittest discover -s tests -v
+python3 -m scripts.research
+```
 
-3. **Run the simulator:**
-   ```sh
-   python simulator.py
-   ```
+The research command generates **1,440 policy measurements**: four workload profiles × three quantum settings × 20 seeds × six policies. Read [results](docs/results/RESULTS.md), [raw JSON](docs/results/benchmarks.json), and [CSV samples](docs/results/samples.csv).
 
-## Usage
-- Launch the simulator using the command above.
-- Input the process data (Process ID, Arrival Time, Burst Time).
-- Select the scheduling algorithm you want to simulate (FCFS, SJF, RR).
-- Click "Start Simulation" to see the visual representation of the process scheduling.
+Optional browser checks require Node.js 22+:
 
-## User Interface
-The user interface (UI) of the Process Scheduling Simulator is designed to be simple and intuitive, making it easy for users to input data and visualize the scheduling algorithms. It is built using Python's Tkinter library and consists of the following components:
+```bash
+npm ci
+npx playwright install chromium
+npm run test:browser
+```
 
-- Input Section:
-  - Process ID: A text field to input the unique identifier for each process.
-  - Arrival Time: A text field to enter the time at which each process arrives in the queue.
-  - Burst Time: A text field for entering the CPU burst time required by each process.
+Browser checks launch a temporary server and database, exercise the main workflows, and capture desktop/mobile screenshots. GitHub Actions runs unit/API tests on Python 3.11–3.14 and browser checks on Chromium.
 
-- Algorithm Selection:
-  - A set of radio buttons allowing the user to choose between FCFS, SJF, and RR scheduling algorithms.
+## Architecture
 
-- Simulation Controls:
-  - Additional Process: Buttons to add or remove the number of process to simulate. 
-  - Start Simulation: A button that begins the simulation based on the entered data and selected algorithm.
+```mermaid
+flowchart LR
+    UI[Browser dashboard] --> API[Local JSON API]
+    API --> Engine[Deterministic scheduler]
+    API --> Generator[Seeded workload generator]
+    API --> Bench[Paired benchmark runner]
+    Bench --> Generator
+    Bench --> Engine
+    API --> DB[(SQLite notebook)]
+    CLI[Research script] --> Bench
+```
 
-- Output Section:
-  -  Displays the Gantt chart representing the execution order of processes.
-  -  Shows calculated metrics such as average waiting time, turnaround time, and response time.
- 
-This is an example of our system's user interface.
+```text
+schedlab/             Simulation, experiments, HTTP API, persistence
+web/                  Dashboard HTML, CSS, JavaScript
+tests/                Algorithm, invariant, upstream, and HTTP tests
+scripts/              Research reproduction and browser verification
+docs/                 Capstone report, defense guide, attribution, results
+simulator.py          Preserved upstream desktop application
+img/                  Preserved upstream images
+```
 
-<p align="center">
-  <img src=./img/User-interface.png>
-</p>
+## Model assumptions
 
+One CPU, integer time units, one known CPU burst per process, no I/O, zero switching cost, finite job sets. Lower priority numbers run first. Equal policy scores use arrival time, then input order. Round Robin enqueues arrivals through the quantum endpoint before requeuing the current process. Adjacent timeline segments for the same process are merged.
 
-## Scheduling Algorithms
-### First-Come, First-Served (FCFS)
-- **Description:** The simplest scheduling algorithm, where the process that arrives first is executed first.
-- **Characteristics:** Non-preemptive, straightforward but can cause long waiting times, especially if a long process arrives before shorter ones.
+Utilization and throughput cover time zero through final completion, including initial idle time. A context switch means a transition between different running processes without an intervening idle interval; the initial dispatch does not count. See [the report](docs/REPORT.md) for formulas and limitations.
 
-### Shortest Job First (SJF)
-- **Description:** Executes the process with the shortest burst time first.
-- **Characteristics:** Can be preemptive or non-preemptive. Minimizes average waiting time but requires accurate prediction of burst times.
+These synthetic experiments do not measure Linux/Windows scheduling performance. SJF/SRTF rely on advance burst knowledge. The dashboard lists ready-queue **members**, not their internal policy order. No universal best-policy claim follows from a selected workload.
 
-### Round Robin (RR)
-- **Description:** Each process is assigned a fixed time slice (quantum) and is cycled through in order until completion.
-- **Characteristics:** Preemptive, suitable for time-sharing systems. Provides a balance between responsiveness and throughput.
+## Graduation project materials
 
-## How It Works
-The simulator takes input for process IDs, arrival times, and burst times, then simulates the chosen scheduling algorithm. The Gantt chart is drawn using Turtle graphics, and the simulation results (waiting time, turnaround time, response time) are displayed on the screen.
+- [Project report and evaluation](docs/REPORT.md)
+- [Ten-minute demo and defense questions](docs/DEFENSE.md)
+- [Upstream provenance and changes](docs/PROVENANCE.md)
+- [API examples](docs/API.md)
+- [Contributing](CONTRIBUTING.md)
 
-### Example:
-- **Processes:** P1, P2, P3, P4, P5
-- **Arrival Times:** 0, 2, 5, 10, 5
-- **Burst Times:** 10, 5, 15, 20, 5
+Suggested title: **“Reproducible Comparative Evaluation of CPU Scheduling Policies with an Interactive Experiment Platform.”** Confirm the scope with your department; this repository supplies a working implementation and evidence, not institutional graduation approval.
 
-### Output FCFS:
-  <p align="center">
-    <img src=.\img\FCFS-example.png>
-  </p>
+## Original desktop application
 
-### Output SJF (non-preemptive):
- <p align="center">
-    <img src=.\img\SJF-non-preemptive-example.png>
-  </p>
-  
-### Output SJF (preemptive): 
- <p align="center">
-    <img src=.\img\SJF-preemptive-example.png>
-  </p>
-  
-### Output RR: 
-  <p align="center">
-    <img src=.\img\RR-example.png>
-  </p>
-  
+`python3 simulator.py` starts the preserved Tkinter/Turtle version. It requires a GUI display and a Python installation with Tk support; some Linux distributions package Tk separately. Its legacy behavior is retained for study and is not used by the web dashboard.
 
+## License and references
 
-## License
-This code is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+MIT; original authors' notice is retained in [LICENSE](LICENSE). SchedLab additions are also MIT-licensed.
 
-## Author
-This repository was created by [Sorawit Chokphantavee](https://github.com/SorawitChok), [Sirawit Chokphantavee](https://github.com/SirawitC), Narinthorn Chinvorarat, and Nathanon Rookheb.
+- Sorawit Chokphantavee, Sirawit Chokphantavee, Narinthorn Chinvorarat, Nathanon Rookheb: [upstream simulator](https://github.com/SorawitChok/Process-Scheduling-Simulation-Project).
+- Remzi H. Arpaci-Dusseau and Andrea C. Arpaci-Dusseau: [Operating Systems: Three Easy Pieces, Scheduling: Introduction](https://pages.cs.wisc.edu/~remzi/OSTEP/cpu-sched.pdf).
+- University of Wisconsin–Madison: [CS 537 scheduling notes](https://pages.cs.wisc.edu/~bart/537/lecturenotes/s11.html).

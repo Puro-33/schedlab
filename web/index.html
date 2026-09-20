@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An interactive laboratory for reproducible CPU scheduling research.">
+  <title>SchedLab · CPU Scheduling Research</title><link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/" aria-label="SchedLab home"><span class="brand-icon">S</span>SchedLab<span class="version">01</span></a>
+    <div class="side-label">WORKSPACE</div>
+    <nav aria-label="Main navigation"><a class="active" href="#laboratory">◫ <span>Scheduling lab</span></a><a href="#benchmarks">▥ <span>Benchmarks</span></a><a href="#notebook">▤ <span>Experiment notebook</span></a><a href="#methodology">◎ <span>Methodology</span></a></nav>
+    <div class="side-bottom"><span class="status-dot"></span> Local research environment<p>Six policies. One workload.<br>Make the tradeoffs visible.</p><span class="mono">ENGINE v1.0.0</span></div>
+  </aside>
+  <main>
+    <header class="topbar"><span>OPERATING SYSTEMS <span class="slash">/</span> RESEARCH LAB</span><span class="badge">● REPRODUCIBLE BY DESIGN</span></header>
+    <section id="laboratory">
+      <div class="page-heading"><div><div class="eyebrow">EXPERIMENT / 001</div><h1>Every cycle tells a story.</h1><p>Explore how scheduling decisions shape performance.</p></div><button id="export-json" class="button secondary" disabled>↓ Export run</button></div>
+      <div class="workspace-grid">
+        <section class="panel workload-panel"><div class="panel-heading"><h2><span class="step">01</span> Define your workload</h2><span class="mono" id="process-count">0 PROCESSES</span></div>
+          <div class="generator"><label>Workload profile<select id="profile"><option value="mixed">Mixed workload</option><option value="convoy">Convoy effect</option><option value="interactive">Short interactive jobs</option><option value="batch">Batch processing</option></select></label><label>Seed<input id="seed" type="number" min="0" max="2147483617" value="42"></label><label>Processes<input id="count" type="number" min="2" max="100" value="8"></label><button id="generate" class="button secondary">Generate</button></div>
+          <div class="table-scroll process-editor"><table><thead><tr><th>Process</th><th>Arrival</th><th>CPU burst</th><th>Priority <span title="Lower numbers run first">↓</span></th><th><span class="sr-only">Remove</span></th></tr></thead><tbody id="process-rows"></tbody></table></div>
+          <div class="workload-footer"><button id="add-process" class="text-button">+ Add process</button><label class="import-label">↑ Import JSON<input id="import-file" type="file" accept=".json,application/json"></label><label class="quantum-label">RR quantum<input id="quantum" type="number" min="1" max="1000" value="3"><span>units</span></label></div>
+          <div class="run-footer"><span>Single CPU · known bursts · zero switch cost</span><button id="run" class="button primary">Compare all policies <span>→</span></button></div>
+        </section>
+        <section class="panel insight-panel"><div class="eyebrow">THE RESEARCH QUESTION</div><h2>Fast to respond.<br>Or fast to finish?</h2><p>Policies optimize different outcomes. Compare waiting time, responsiveness, and scheduling overhead on the exact same input.</p><div class="insight-divider"></div><div id="insight"><span class="insight-number">06</span><p>Scheduling policies, ready for a fair comparison.</p></div><div class="mini-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span class="mono">CHANGE ONE VARIABLE. OBSERVE THE EFFECT.</span></section>
+      </div>
+      <div id="status" role="status" aria-live="polite">Loading the laboratory…</div>
+      <section id="results" hidden>
+        <div class="section-heading"><div><div class="eyebrow">02 / OBSERVE</div><h2>Policy comparison</h2></div><label class="inline-label">Optimize for<select id="metric"><option value="mean_waiting">Mean waiting time</option><option value="mean_response">Mean response time</option><option value="mean_turnaround">Mean turnaround time</option><option value="p95_waiting">95th percentile waiting</option><option value="context_switches">Context switches</option></select></label></div>
+        <div id="policy-cards" class="policy-cards"></div>
+        <section class="panel timeline-panel"><div class="panel-heading"><h2>Execution timeline <span class="tag" id="selected-policy"></span></h2><span class="mono">TIME UNITS →</span></div><div id="timeline-legend" class="legend"></div><div class="timeline-scroll"><div id="timeline"></div></div><div class="playback"><button id="play" class="button secondary">▶ Play</button><label for="scrubber" class="sr-only">Simulation time</label><input id="scrubber" type="range" min="0" value="0"><output id="clock" class="mono">t = 0</output><span id="running-label"></span></div><div class="queue-state"><strong>Ready queue members</strong><span id="ready-queue"></span></div></section>
+        <div class="details-grid"><section class="panel"><div class="panel-heading"><h2>Per-process outcomes</h2><button id="export-csv" class="text-button">↓ CSV</button></div><div class="table-scroll"><table><thead><tr><th>Process</th><th>Complete</th><th>Turnaround</th><th>Waiting</th><th>Response</th></tr></thead><tbody id="outcomes"></tbody></table></div></section><section class="panel metrics-panel"><h2>Run statistics</h2><dl id="statistics"></dl><p class="muted">Utilization includes initial idle time. Switches count transitions between different processes without an idle gap.</p></section></div>
+      </section>
+    </section>
+    <section id="benchmarks"><div class="section-heading"><div><div class="eyebrow">03 / VALIDATE</div><h2>One run is an anecdote. Repeat it.</h2></div></div><div class="panel benchmark-panel"><p>Run paired comparisons on consecutive seeds. Every policy receives the same workload in each repetition.</p><div class="benchmark-controls"><label>Repetitions<input id="repeats" type="number" min="2" max="30" value="10"></label><button id="benchmark" class="button primary">Run benchmark →</button><button id="benchmark-export" class="button secondary" disabled>↓ Export samples</button><span id="benchmark-config" class="muted">Uses the profile, seed, count, and quantum above.</span></div><div id="benchmark-results" class="table-scroll"></div></div></section>
+    <section id="notebook"><div class="section-heading"><div><div class="eyebrow">04 / DOCUMENT</div><h2>Your experiment notebook</h2></div></div><div class="panel notebook-panel"><div class="save-controls"><label>Experiment name<input id="experiment-name" maxlength="80" placeholder="e.g. Convoy effect · quantum 3" value="Mixed workload exploration"></label><button id="save" class="button secondary" disabled>Save current run</button></div><div id="saved-runs" class="saved-runs"></div></div></section>
+    <section id="methodology" class="methodology"><div><div class="eyebrow">KNOW YOUR MODEL</div><h2>A transparent experiment.</h2></div><div><p>This is a deterministic, single-CPU simulation with one CPU burst per process. It does not model I/O, multicore execution, or context-switch duration. SJF and SRTF know burst lengths in advance.</p><p>Waiting = completion − arrival − burst. Response = first start − arrival. Lower priority numbers run first. Ties use arrival time, then input order. RR admits new arrivals before requeuing the interrupted process.</p><p>Benchmarks report mean ± sample standard deviation across workloads, not a confidence interval. Generated “interactive” workloads contain short CPU jobs, not interactive I/O behavior. <a href="https://pages.cs.wisc.edu/~remzi/OSTEP/" target="_blank" rel="noreferrer">Read the scheduling foundations ↗</a></p></div></section>
+    <footer>SchedLab <span>Built for asking better systems questions.</span><span class="mono">LOCAL · OPEN · REPRODUCIBLE</span></footer>
+  </main>
+</body>
+</html>
