@@ -7,7 +7,7 @@ of a quantum before re-enqueuing the interrupted process.
 
 from collections import deque
 from dataclasses import dataclass
-from math import ceil
+from math import ceil, fsum
 import re
 
 ALGORITHMS = {
@@ -129,7 +129,7 @@ def simulate(rows, algorithm="fcfs", quantum=3):
                        "turnaround": turnaround, "waiting": turnaround - p.burst,
                        "response": first[i] - p.arrival, "slowdown": turnaround / p.burst})
     waits = sorted(p["waiting"] for p in result)
-    metrics = {"mean_" + metric: sum(p[metric] for p in result) / n
+    metrics = {"mean_" + metric: fsum(p[metric] for p in result) / n
                for metric in ("waiting", "turnaround", "response", "slowdown")}
     metrics.update({"p95_waiting": waits[ceil(.95 * n) - 1], "max_waiting": max(waits),
                     "makespan": time, "utilization": sum(p.burst for p in processes) / time,
